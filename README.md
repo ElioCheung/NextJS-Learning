@@ -351,4 +351,317 @@ global-error.tsx文件，需包涵```<html>```、```<body>```标签
 
 ### 路由拦截 Intercepting Routes
 
-拦截路由允许从当前布局内应用程序的其他部分加载路由。当您想要显示路由内容而不需要用户切换到不同的上下文时，此路由范例非常有用。
+拦截路由允许从当前布局内应用程序的其他部分加载路由。当您想要显示路由内容而不需要用户切换到不同的上下文时，此路由范例非常有用。但是，当单击或者刷新页面时，不应发生路由拦截。
+
+*创建*
+  - （.)floderName : 匹配同级
+  - （..)floderName : 匹配上一级 
+  - （..)(..)floderName : 匹配上两级
+  - （...)floderName : 匹配根级
+
+### 路由处理程序 Route Handlers
+
+一般用于自定义请求函数。
+定义在app文件夹下的route.ts文件中，形如：
+```
+// app/api/route.ts
+export async function GET(request: Request) {}
+```
+注意：可嵌套在app文件夹中，但，page.ts所在路径下不能有route.ts。
+
+支持所有restful api：GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS。
+
+- 缓存 Cache
+
+  当使用GET获取数据时，NextJS会自动缓存结果。
+  ```
+  import { NextResponse } from 'next/server'
+ 
+  export async function GET() {
+    const res = await fetch('https://data.mongodb-api.com/...', {
+      headers: {
+        'Content-Type': 'application/json',
+        'API-Key': process.env.DATA_API_KEY,
+      },
+    })
+    const data = await res.json()
+  
+    return NextResponse.json({ data })
+  }
+  ```
+- Opting out of caching
+
+  触发的方法有：
+    1. 在GET中，使用Request对象；
+
+        ```
+        import { NextResponse } from 'next/server'
+
+        export async function GET(request: Request) {
+          const { searchParams } = new URL(request.url)
+          const id = searchParams.get('id')
+          const res = await fetch(`https://data.mongodb-api.com/product/${id}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'API-Key': process.env.DATA_API_KEY,
+            },
+          })
+          const product = await res.json()
+        
+          return NextResponse.json({ product })
+        }
+        ```
+
+    2. 使用其他HTTP方法获取数据；
+
+        ```
+        import { NextResponse } from 'next/server'
+
+        export async function POST() {
+          const res = await fetch('https://data.mongodb-api.com/...', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'API-Key': process.env.DATA_API_KEY,
+            },
+            body: JSON.stringify({ time: new Date().toISOString() }),
+          })
+        
+          const data = await res.json()
+        
+          return NextResponse.json(data)
+        }
+        ```
+
+    3. 使用动态函数，如：cookies、headers
+    4. Segment Config Options手动指定为动态模式
+
+- 路由解析 Route Resolution
+
+  路由做为最低级别：
+    1. 不参与布局以及客户端导航
+    2. route.ts不能与page.tsx位于同一路由
+
+- 刷新缓存
+
+  使用 next.revalidate 选项刷新缓存，例如：
+  ```
+  import { NextResponse } from 'next/server'
+ 
+  export async function GET() {
+    const res = await fetch('https://data.mongodb-api.com/...', {
+      next: { revalidate: 60 }, // Revalidate every 60 seconds
+    })
+    const data = await res.json()
+  
+    return NextResponse.json(data)
+  }
+  ```
+
+- 动态函数
+
+  - Cookies
+
+    使用 next/headers 中的 cookie 来读取 cookie。此 cookie 实例是只读的。若要设置 cookie，需要使用 Set-Cookie返回一个新的响应。
+
+    ```
+    import { cookies } from 'next/headers'
+ 
+    export async function GET(request: Request) {
+      const cookieStore = cookies()
+      const token = cookieStore.get('token')
+    
+      return new Response('Hello, Next.js!', {
+        status: 200,
+        headers: { 'Set-Cookie': `token=${token.value}` }, // set new cookie
+      })
+    }
+    ```
+    
+    或者也可使用，webApi获取cookie
+
+    ```
+    import { type NextRequest } from 'next/server'
+ 
+    export async function GET(request: NextRequest) {
+      const token = request.cookies.get('token') // via request params
+    }
+    ```
+  
+  - Headers
+
+    使用 next/headers 中的 headers 来读取 headers。此 headers 实例是只读的。若要设置 headers，请返回一个新的响应。
+    ```
+    import { headers } from 'next/headers'
+ 
+    export async function GET(request: Request) {
+      const headersList = headers()
+      const referer = headersList.get('referer')
+    
+      return new Response('Hello, Next.js!', {
+        status: 200,
+        headers: { referer: referer }, // set new headers
+      })
+    }
+    ```
+
+    ```
+    import { type NextRequest } from 'next/server'
+ 
+    export async function GET(request: NextRequest) {
+      const requestHeaders = new Headers(request.headers)
+    }
+    ```
+
+  - Redirects 重定向
+
+    ```
+    import { redirect } from 'next/navigation'
+ 
+    export async function GET(request: Request) {
+      redirect('https://nextjs.org/')
+    }
+    ```
+  
+  - Dynamic Route Segements 动态路由片段
+
+    ```
+    export async function GET(
+      request: Request,
+      { params }: { params: { slug: string } }
+    ) {
+      const slug = params.slug // 'a', 'b', or 'c'
+    }
+    ```
+  
+  - Request body 请求体
+
+    ```
+    import { NextResponse } from 'next/server'
+ 
+    export async function POST(request: Request) {
+      const res = await request.json()
+      return NextResponse.json({ res })
+    }
+    ```
+  
+  - Request Body FormData
+
+    ```
+    import { NextResponse } from 'next/server'
+ 
+    export async function POST(request: Request) {
+      const formData = await request.formData()
+      const name = formData.get('name')
+      const email = formData.get('email')
+      return NextResponse.json({ name, email })
+    }
+    ```
+  
+  - CROS
+
+    ```
+    export async function GET(request: Request) {
+      return new Response('Hello, Next.js!', {
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      })
+    }
+    ```
+  
+  - Segment Config Options
+
+    ```
+    export const dynamic = 'auto' 
+    export const dynamicParams = true
+    export const revalidate = false
+    export const fetchCache = 'auto'
+    export const runtime = 'nodejs'
+    export const preferredRegion = 'auto'
+    ```
+
+### Middleware 中间件
+
+中间件运行在请求之前。可以通过重写、重定向、修改请求或响应标头或直接响应来修改响应。
+中间件同时也运行在缓存和路由匹配之前。
+
+项目的根目录中的文件 middleware.ts（或 .js）定义中间件。
+
+```
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+ 
+// This function can be marked `async` if using `await` inside
+export function middleware(request: NextRequest) {
+  return NextResponse.redirect(new URL('/home', request.url))
+}
+ 
+// See "Matching Paths" below to learn more
+export const config = {
+  matcher: '/about/:path*',
+}
+```
+
+  - Matching Paths
+
+    中间件将会被每个路由调用。执行顺序为：
+      1. headers from next.config.js
+      2. redirects from next.config.js
+      3. Middleware (rewrites, redirects, etc.)
+      4. beforeFiles (rewrites) from next.config.js
+      5. Filesystem routes (public/, _next/static/, pages/, app/, etc.)
+      6. afterFiles (rewrites) from next.config.js
+      7. Dynamic Routes (/blog/[slug])
+      8. fallback (rewrites) from next.config.js
+    
+    定义中间件运行的路径两种方法：
+      1. 自定义matcher config
+
+        ```
+        // middleware.ts
+        export const config = {
+          matcher: ['/about/:path*', '/dashboard/:path*'],
+        }
+        ```
+
+      2. 条件判断
+
+        ```
+        import { NextResponse } from 'next/server'
+        import type { NextRequest } from 'next/server'
+        
+        export function middleware(request: NextRequest) {
+          if (request.nextUrl.pathname.startsWith('/about')) {
+            return NextResponse.rewrite(new URL('/about-2', request.url))
+          }
+        
+          if (request.nextUrl.pathname.startsWith('/dashboard')) {
+            return NextResponse.rewrite(new URL('/dashboard/user', request.url))
+          }
+        }
+        ```
+
+```
+import { NextRequest, NextResponse } from 'next/server'
+import { isAuthenticated } from '@lib/auth'
+ 
+// Limit the middleware to paths starting with `/api/`
+export const config = {
+  matcher: '/api/:function*',
+}
+ 
+export function middleware(request: NextRequest) {
+  // Call our authentication function to check the request
+  if (!isAuthenticated(request)) {
+    // Respond with JSON indicating an error message
+    return new NextResponse(
+      JSON.stringify({ success: false, message: 'authentication failed' }),
+      { status: 401, headers: { 'content-type': 'application/json' } }
+    )
+  }
+}
+```
