@@ -1,0 +1,11 @@
+{
+  "files.associations": {
+    "*.css": "tailwindcss",
+    "*.env.local": "env",
+    "*.env.development": "env",
+    "*.nev.product": "env"
+  },
+  "editor.quickSuggestions": {
+    "strings": "on"
+  }
+}
