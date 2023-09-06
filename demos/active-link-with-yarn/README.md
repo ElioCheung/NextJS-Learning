@@ -49,4 +49,17 @@
 
       - usePathname hook只运行在client下
   
-  3. 
+  3. 使用@next/bundle-analyzer，分析打包情况
+
+      ```
+      // next.config.js
+      /** @type {import('next').NextConfig} */
+      const nextConfig = {}
+
+      const bundleAnalyzer = require('@next/bundle-analyzer')({
+          enabled: process.env.ANALYZE === 'true',
+      })
+
+      module.exports = bundleAnalyzer(nextConfig)
+
+      ```
